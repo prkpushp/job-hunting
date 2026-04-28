@@ -11,7 +11,7 @@ jobs:
 
     steps:
       # =========================
-      # 1. Checkout private repo (ytci)
+      # 1. Checkout ytci repo
       # =========================
       - name: Checkout ytci (private repo)
         uses: actions/checkout@v4
@@ -22,7 +22,7 @@ jobs:
           fetch-depth: 1
 
       # =========================
-      # 2. Fetch Telegram users + update file
+      # 2. Fetch Telegram updates + update users.json
       # =========================
       - name: Fetch Telegram updates + update users.json
         run: |
@@ -32,22 +32,26 @@ jobs:
 
           mkdir -p ytci/naukri
 
-          # Ensure users.json exists
+          # Ensure file exists
           if [ ! -f ytci/naukri/users.json ]; then
             echo '{"users":[]}' > ytci/naukri/users.json
           fi
 
-          # Fetch updates from Telegram
+          # Fetch Telegram updates
           RESPONSE=$(curl -s "https://api.telegram.org/bot${BOT_TOKEN}/getUpdates")
           echo "$RESPONSE" > updates.json
 
-          # Extract new chat IDs
-          NEW_USERS=$(jq -r '.result[].message.chat.id' updates.json | sort -u)
+          # SAFE extract chat IDs (FIXED FOR CI + Telegram variability)
+          NEW_USERS=$(jq -r '
+            .result[]
+            | select(.message?.chat?.id != null)
+            | .message.chat.id
+          ' updates.json | sort -u)
 
-          # Extract existing users
-          EXISTING=$(jq -r '.users[]' ytci/naukri/users.json)
+          # SAFE existing users load
+          EXISTING=$(jq -r '.users[]? // empty' ytci/naukri/users.json 2>/dev/null || true)
 
-          # Merge + dedupe
+          # Merge + dedupe safely
           printf "%s\n%s\n" "$EXISTING" "$NEW_USERS" \
             | grep -v '^$' \
             | sort -u \
@@ -55,7 +59,7 @@ jobs:
             | jq -s '{users: .}' > ytci/naukri/users.json
 
       # =========================
-      # 3. Commit updated users
+      # 3. Commit updated users.json
       # =========================
       - name: Commit updated users.json
         run: |
@@ -64,7 +68,7 @@ jobs:
           git config user.name "github-actions"
           git config user.email "actions@github.com"
 
-          git add ytci/naukri/users.json
+          git add naukri/users.json
 
           git commit -m "Update Telegram users list" || echo "No changes"
 
@@ -80,7 +84,7 @@ jobs:
           NAUKRI_PROFILE_URL="https://www.naukri.com/mnjuser/profile"
 
           MESSAGE="📢 Naukri Profile Update Reminder
-
+          
           👉 Open Profile: ${NAUKRI_PROFILE_URL}
           
           आज अपना Naukri profile refresh कर लो 👇
