@@ -13,7 +13,37 @@ jobs:
       - name: Checkout (ytci repo)
         run: |
           git clone https://x-access-token:${{ secrets.CROSS_REPO_PAT }}@github.com/ytci/naukri.git ytci
-
+      
+      - name: Fetch Telegram updates + update users.json
+        run: |
+          BOT_TOKEN="${{ secrets.BOT_TOKEN }}"
+      
+          RESPONSE=$(curl -s "https://api.telegram.org/bot${BOT_TOKEN}/getUpdates")
+      
+          echo "$RESPONSE" > updates.json
+      
+          # Extract chat IDs
+          NEW_USERS=$(jq -r '.result[].message.chat.id' updates.json)
+      
+          # Load existing users
+          EXISTING=$(jq -r '.users[]' ytci/users.json)
+      
+          # Merge + dedupe
+          printf "%s\n%s\n" "$EXISTING" "$NEW_USERS" \
+            | sort -u \
+            | jq -R . \
+            | jq -s '{users: .}' > ytci/users.json
+      
+      - name: Commit updated users.json
+        run: |
+          cd ytci
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+      
+          git add users.json
+          git commit -m "Updated users list" || echo "No changes"
+          git push
+          
       - name: Send Telegram reminders
         run: |
           BOT_TOKEN="${{ secrets.BOT_TOKEN }}"
