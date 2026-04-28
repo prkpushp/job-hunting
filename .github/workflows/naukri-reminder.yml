@@ -43,7 +43,8 @@ jobs:
 
           # SAFE extract chat IDs (FIXED FOR CI + Telegram variability)
           NEW_USERS=$(jq -r '
-            .result[]
+            (.result // [])
+            | .[]
             | select(.message?.chat?.id != null)
             | .message.chat.id
           ' updates.json | sort -u)
