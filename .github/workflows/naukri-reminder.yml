@@ -22,8 +22,20 @@ jobs:
           fetch-depth: 1
 
       # =========================
-      # 2. Fetch Telegram updates + update users.json
       # =========================
+      - name: Load BOT_TOKEN from ytci repo
+        run: |
+          BOT_TOKEN=$(jq -r '.telegram.bot_token' ytci/naukri/naukri.json)
+
+          if [ -z "$BOT_TOKEN" ] || [ "$BOT_TOKEN" == "null" ]; then
+            echo "BOT_TOKEN not found in ytci repo JSON"
+            exit 1
+          fi
+
+          echo "BOT_TOKEN=$BOT_TOKEN" >> $GITHUB_ENV
+          
+      # 2. Fetch Telegram updates + update users.json
+          
       - name: Fetch Telegram updates + update users.json
         run: |
           set -e
