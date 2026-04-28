@@ -89,7 +89,6 @@ jobs:
       # =========================
       - name: Send Telegram reminders
         run: |
-          BOT_TOKEN="${{ secrets.BOT_TOKEN }}"
 
           NAUKRI_PROFILE_URL="https://www.naukri.com/mnjuser/profile"
 
