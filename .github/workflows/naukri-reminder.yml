@@ -2,7 +2,7 @@ name: Naukri Daily Telegram Reminder
 
 on:
   schedule:
-    - cron: "30 3 * * *"
+    - cron: "30 3 * * *"  # 9:00 AM IST
   workflow_dispatch:
 
 jobs:
@@ -10,50 +10,79 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout (ytci repo)
-        run: |
-          git clone https://x-access-token:${{ secrets.CROSS_REPO_PAT }}@github.com/prkpushp/ytci.git ytci
-      
+      # =========================
+      # 1. Checkout private repo (ytci)
+      # =========================
+      - name: Checkout ytci (private repo)
+        uses: actions/checkout@v4
+        with:
+          repository: prkpushp/ytci
+          token: ${{ secrets.CROSS_REPO_PAT }}
+          path: ytci
+          fetch-depth: 1
+
+      # =========================
+      # 2. Fetch Telegram users + update file
+      # =========================
       - name: Fetch Telegram updates + update users.json
         run: |
+          set -e
+
           BOT_TOKEN="${{ secrets.BOT_TOKEN }}"
-      
+
+          mkdir -p ytci/naukri
+
+          # Ensure users.json exists
+          if [ ! -f ytci/naukri/users.json ]; then
+            echo '{"users":[]}' > ytci/naukri/users.json
+          fi
+
+          # Fetch updates from Telegram
           RESPONSE=$(curl -s "https://api.telegram.org/bot${BOT_TOKEN}/getUpdates")
-      
           echo "$RESPONSE" > updates.json
-      
-          # Extract chat IDs
-          NEW_USERS=$(jq -r '.result[].message.chat.id' updates.json)
-      
-          # Load existing users
+
+          # Extract new chat IDs
+          NEW_USERS=$(jq -r '.result[].message.chat.id' updates.json | sort -u)
+
+          # Extract existing users
           EXISTING=$(jq -r '.users[]' ytci/naukri/users.json)
-      
+
           # Merge + dedupe
           printf "%s\n%s\n" "$EXISTING" "$NEW_USERS" \
+            | grep -v '^$' \
             | sort -u \
             | jq -R . \
             | jq -s '{users: .}' > ytci/naukri/users.json
-      
+
+      # =========================
+      # 3. Commit updated users
+      # =========================
       - name: Commit updated users.json
         run: |
           cd ytci
+
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-      
-          git add users.json
-          git commit -m "Updated users list" || echo "No changes"
-          git push
-          
+
+          git add naukri/users.json
+
+          git commit -m "Update Telegram users list" || echo "No changes"
+
+          git push origin HEAD
+
+      # =========================
+      # 4. Send Telegram reminders
+      # =========================
       - name: Send Telegram reminders
         run: |
           BOT_TOKEN="${{ secrets.BOT_TOKEN }}"
 
           NAUKRI_PROFILE_URL="https://www.naukri.com/mnjuser/profile"
 
-          MESSAGE="📢 *Naukri Profile Update Reminder*
+          MESSAGE="📢 Naukri Profile Update Reminder
 
-          👉 *Open Profile*: ${NAUKRI_PROFILE_URL}
-
+          👉 Open Profile: ${NAUKRI_PROFILE_URL}
+          
           आज अपना Naukri profile refresh कर लो 👇
           • Login करो
           • Profile खोलो
