@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Checkout (ytci repo)
         run: |
-          git clone https://x-access-token:${{ secrets.CROSS_REPO_PAT }}@github.com/ytci/naukri.git ytci
+          git clone https://x-access-token:${{ secrets.CROSS_REPO_PAT }}@github.com/ytci.git ytci
       
       - name: Fetch Telegram updates + update users.json
         run: |
@@ -26,13 +26,13 @@ jobs:
           NEW_USERS=$(jq -r '.result[].message.chat.id' updates.json)
       
           # Load existing users
-          EXISTING=$(jq -r '.users[]' ytci/users.json)
+          EXISTING=$(jq -r '.users[]' ytci/naukri/users.json)
       
           # Merge + dedupe
           printf "%s\n%s\n" "$EXISTING" "$NEW_USERS" \
             | sort -u \
             | jq -R . \
-            | jq -s '{users: .}' > ytci/users.json
+            | jq -s '{users: .}' > ytci/naukri/users.json
       
       - name: Commit updated users.json
         run: |
@@ -62,7 +62,7 @@ jobs:
           ⏰ Best time: 8–10 AM
           🔥 Recruiter visibility boost"
           
-                    USERS=$(jq -r '.users[]' ytci/users.json)
+                    USERS=$(jq -r '.users[]' ytci/naukri/users.json)
           
                     for CHAT_ID in $USERS; do
                       echo "Sending to $CHAT_ID"
