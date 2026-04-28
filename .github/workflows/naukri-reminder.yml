@@ -39,9 +39,6 @@ jobs:
       - name: Fetch Telegram updates + update users.json
         run: |
           set -e
-
-          BOT_TOKEN="${{ secrets.BOT_TOKEN }}"
-
           mkdir -p ytci/naukri
 
           # Ensure file exists
