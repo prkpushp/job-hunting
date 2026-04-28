@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Checkout (ytci repo)
         run: |
-          git clone https://x-access-token:${{ secrets.CROSS_REPO_PAT }}@github.com/ytci.git ytci
+          git clone https://x-access-token:${{ secrets.CROSS_REPO_PAT }}@github.com/prkpushp/ytci.git ytci
       
       - name: Fetch Telegram updates + update users.json
         run: |
