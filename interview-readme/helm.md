@@ -328,36 +328,36 @@ This helps customize:
 
 # Creating Your Own Helm Charts
 
-Helm can also package internal applications.
+Helm can also package internal applications used within organizations.
 
-Example Organization:
+Example Repository:
 
 ```text
-best-commerce
+platform-charts
 ```
 
-Example Microservices:
+Example Applications:
 
-* payments
-* shipping
+* frontend-app
+* backend-api
 
-Each microservice can have its own Helm Chart.
+Each application can be packaged as an independent Helm Chart.
 
 ---
 
 # Creating a Helm Chart
 
-## Create Chart Structure
+## Generate Chart Structure
 
 ```bash
-helm create payments
-helm create shipping
+helm create frontend-app
+helm create backend-api
 ```
 
 Generated Structure:
 
 ```text
-payments/
+frontend-app/
 ├── Chart.yaml
 ├── values.yaml
 ├── charts/
@@ -370,13 +370,13 @@ payments/
 
 ## Chart.yaml
 
-Stores chart metadata.
+Stores metadata about the chart.
 
 Example:
 
 ```yaml
 apiVersion: v2
-name: payments
+name: frontend-app
 version: 0.1.0
 appVersion: "1.0.0"
 ```
@@ -393,16 +393,16 @@ Common fields:
 
 ## templates/
 
-Contains Kubernetes manifests.
+Contains Kubernetes resource manifests.
 
-Examples:
+Common resources:
 
 * Deployment
 * Service
 * ConfigMap
 * Secret
-* ServiceAccount
 * Ingress
+* ServiceAccount
 
 Example:
 
@@ -418,27 +418,31 @@ templates/
 
 ## values.yaml
 
-Used to customize templates.
-
-Common configurations:
-
-* Replica count
-* Image name
-* Image tag
-* Resource limits
-* Environment variables
-* Service type
+Used for customizing chart deployments across environments.
 
 Example:
 
 ```yaml
+replicaCount: 2
+
 image:
-  repository: busybox
+  repository: nginx
   tag: latest
   pullPolicy: IfNotPresent
 
-appMessage: "I am payment service"
+service:
+  type: ClusterIP
+  port: 80
 ```
+
+Typical customizations:
+
+* Replica count
+* Image versions
+* Resource limits
+* Service types
+* Environment variables
+* Ingress configuration
 
 ---
 
@@ -450,7 +454,7 @@ kind: Deployment
 metadata:
   name: {{ .Release.Name }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
       app: {{ .Release.Name }}
@@ -460,51 +464,48 @@ spec:
         app: {{ .Release.Name }}
     spec:
       containers:
-      - name: app
+      - name: frontend
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
 ```
 
 ---
 
-# Template Variables
+# Helm Template Variables
 
-Helm templates use placeholders.
-
-Examples:
-
-| Variable                         | Purpose                |
-| -------------------------------- | ---------------------- |
-| `{{ .Values.image.repository }}` | Reads from values.yaml |
-| `{{ .Release.Name }}`            | Current release name   |
-| `{{ .Chart.Name }}`              | Chart name             |
+| Variable                         | Description                   |
+| -------------------------------- | ----------------------------- |
+| `{{ .Values.image.repository }}` | Reads values from values.yaml |
+| `{{ .Release.Name }}`            | Current release name          |
+| `{{ .Chart.Name }}`              | Helm chart name               |
+| `{{ .Values.replicaCount }}`     | Replica configuration         |
 
 ---
 
 # Packaging Helm Charts
 
-## Package Payments Chart
+## Package Frontend Chart
 
 ```bash
-helm package payments
+helm package frontend-app
 ```
 
-## Package Shipping Chart
+## Package Backend Chart
 
 ```bash
-helm package shipping
+helm package backend-api
 ```
 
-Generated:
+Generated Packages:
 
 ```text
-payments-0.1.0.tgz
-shipping-0.1.0.tgz
+frontend-app-0.1.0.tgz
+backend-api-0.1.0.tgz
 ```
 
 ---
 
-# Creating Helm Repository Index
+# Creating Repository Index
 
 ```bash
 helm repo index .
@@ -516,56 +517,62 @@ Generated:
 index.yaml
 ```
 
-This file contains repository metadata and chart references.
+This file contains metadata about all available charts in the repository.
 
 ---
 
 # Hosting Internal Helm Repositories
 
-Internal repositories can be hosted on:
+Organizations commonly host Helm repositories on:
 
-* Nexus
 * JFrog Artifactory
+* Nexus Repository
 * GitHub Pages
-* S3 Buckets
+* AWS S3
 * Internal Web Servers
 
 ---
 
-# Using Internal Repositories
+# Using Internal Helm Repositories
 
 ## Add Repository
 
 ```bash
-helm repo add best-commerce https://example.com/charts
+helm repo add platform-charts https://example.com/charts
 ```
 
-## Search Charts
+## Search Available Charts
 
 ```bash
-helm search repo best-commerce
+helm search repo platform-charts
 ```
 
-## Install Payments Service
+## Install Frontend Application
 
 ```bash
-helm install payments best-commerce/payments
+helm install frontend platform-charts/frontend-app
+```
+
+## Install Backend API
+
+```bash
+helm install backend platform-charts/backend-api
 ```
 
 ---
 
 # Helm Upgrade
 
-Upgrade application versions or configurations.
+Upgrade application versions or deployment configurations.
 
 ```bash
-helm upgrade payments best-commerce/payments
+helm upgrade frontend platform-charts/frontend-app
 ```
 
 Example with custom values:
 
 ```bash
-helm upgrade payments best-commerce/payments \
+helm upgrade frontend platform-charts/frontend-app \
   --set replicaCount=3
 ```
 
@@ -573,19 +580,17 @@ helm upgrade payments best-commerce/payments \
 
 # Passing Custom Values
 
-Values can be overridden during installation.
-
 ## Using --set
 
 ```bash
-helm install payments best-commerce/payments \
+helm install frontend platform-charts/frontend-app \
   --set image.tag=v2
 ```
 
-## Using Custom Values File
+## Using Environment-Specific Values Files
 
 ```bash
-helm install payments best-commerce/payments \
+helm install frontend platform-charts/frontend-app \
   -f values-prod.yaml
 ```
 
@@ -601,7 +606,7 @@ Example:
 | UAT         | 2        |
 | Production  | 5        |
 
-Different values files can be maintained:
+Common values files:
 
 ```text
 values-dev.yaml
@@ -609,62 +614,33 @@ values-uat.yaml
 values-prod.yaml
 ```
 
----
-
-# Common Helm Commands
-
-| Command            | Purpose                  |
-| ------------------ | ------------------------ |
-| `helm version`     | Verify Helm installation |
-| `helm repo add`    | Add repository           |
-| `helm repo update` | Update repositories      |
-| `helm search repo` | Search charts            |
-| `helm install`     | Install chart            |
-| `helm list`        | List releases            |
-| `helm uninstall`   | Remove release           |
-| `helm upgrade`     | Upgrade release          |
-| `helm show values` | Show configurable values |
-| `helm package`     | Package chart            |
-| `helm create`      | Generate chart template  |
-
----
-
-# Helm Best Practices
-
-## Recommended Practices
-
-* Use separate values files per environment
-* Keep templates reusable
-* Store charts in centralized repositories
-* Use semantic versioning
-* Avoid hardcoding values
-* Keep charts modular
-* Use CI/CD pipelines for chart releases
+This helps standardize deployments across environments.
 
 ---
 
 # Real-World DevOps Usage
 
-Helm is heavily used for:
+Helm is widely used for:
 
-* Platform engineering
-* Kubernetes automation
-* GitOps workflows
+* Kubernetes platform engineering
 * CI/CD pipelines
-* Internal platform tooling
+* GitOps workflows
 * Multi-environment deployments
-* Microservices packaging
+* Standardized application packaging
+* Infrastructure automation
 
-Popular tools installed using Helm:
+Popular applications installed using Helm:
 
 * Prometheus
 * Grafana
 * Argo CD
 * Istio
-* NGINX Ingress
+* NGINX Ingress Controller
 * Cert Manager
 * External DNS
 * AWS Load Balancer Controller
+
+Helm enables reusable, versioned, and maintainable Kubernetes deployments.
 
 ---
 
@@ -672,11 +648,11 @@ Popular tools installed using Helm:
 
 ```text
 1. Add Repository
-2. Search Chart
-3. Install Chart
+2. Search Charts
+3. Install Charts
 4. Customize Values
 5. Upgrade Releases
-6. Uninstall When Needed
+6. Uninstall Releases
 7. Create Internal Charts
 8. Publish Charts to Repository
 ```
@@ -687,12 +663,12 @@ Popular tools installed using Helm:
 
 * Helm is the package manager for Kubernetes
 * Charts package Kubernetes applications
-* Repositories store Helm Charts
+* Repositories store reusable Helm Charts
 * Releases are deployed chart instances
-* values.yaml customizes deployments
+* values.yaml enables environment-specific customization
 * templates/ stores Kubernetes manifests
 * Helm simplifies Kubernetes application lifecycle management
-* Internal applications can also be packaged and shared using Helm
+* Internal applications can be packaged and shared across teams
 
 ---
 
